@@ -1,0 +1,71 @@
+.NET Core(C#) Entity Framework Core (EF Core) Update更新记录的方法及示例代码
+https://www.cjavapy.com/article/1882/
+
+1、先查询在更新数据
+可以先通过条件查询到实体，然后修改实体数据，最后调用SaveChanges()方法进行保存到数据库中。如果不通过查询直接更新没有跟踪的实体，可以调用Update(entity)方法。但要注意Update()方法会把实体所有字段标记成已修改，所以使用时应该考虑一下是不是要修改所有字段。
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+namespace ConsoleApplication
+{
+    public class Product
+    {
+        public int? ProductID { get; set; }
+        public string ProductName { get; set; }
+        public string Description { get; set; }
+        public decimal? UnitPrice { get; set; }
+    }
+    public class StoreDbContext : DbContext
+    {
+        public DbSet<Product> Products { get; set; }
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+        {
+            optionsBuilder.UseSqlServer("Your Connection String");
+            base.OnConfiguring(optionsBuilder);
+        }
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<Order>(entity =>
+            {
+                // Set key for entity
+                entity.HasKey(p => p.ProductID);
+            });
+            base.OnModelCreating(modelBuilder);
+        }
+    }
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            using (var context = new StoreDbContext())
+            {
+                // 通过ProductID查询需要修改的数据
+                var entity = context.Products.FirstOrDefault(item => item.ProductID == id);
+                // Validate entity is not null
+                if (entity != null)
+                {
+                    entity.UnitPrice = 22.39m;
+                    entity.Description = "cjavapy.com";
+                    /*如果model被跟踪，那么不需要调用更新API。
+                      只有在没有跟踪条目的情况下才需要调用API。
+                    */
+                    //context.Products.Update(entity);
+                    // 保存更改到数据库
+                   context.SaveChanges();
+                }
+            }
+        }
+    }
+}
+
+2、使用Attach()和Entry()更新
+在DbContext上使用Update()方法会将所有字段标记为已修改，并将所有字段都包含在查询中。如果要更新某几个字段，不是全部字段，则应使用Attach()方法，然后将所需的字段标记为手动修改。
+using (var context = new StoreDbContext())
+{
+  context.Attach(person);
+  context.Entry(person).Property(p => p.Name).IsModified = true;
+  context.SaveChanges();
+}
